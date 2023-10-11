@@ -1,38 +1,42 @@
-from collections import namedtuple
-import altair as alt
-import math
-import pandas as pd
 import streamlit as st
+import openai
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
-"""
-# Welcome to Streamlit!
+# Set your OpenAI API key
+openai.api_key = "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"
 
-Edit `/streamlit_app.py` to customize this app to your heart's desire :heart:
+# Set your Google Sheets credentials file (JSON file you downloaded)
+GOOGLE_SHEETS_CREDENTIALS = "your-credentials.json"
 
-If you have any questions, checkout our [documentation](https://docs.streamlit.io) and [community
-forums](https://discuss.streamlit.io).
+# Initialize the Google Sheets client
+scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
+credentials = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_SHEETS_CREDENTIALS, scope)
+gc = gspread.authorize(credentials)
 
-In the meantime, below is an example of what you can do with just a few lines of code:
-"""
+# Open a Google Sheet by its title
+sheet = gc.open("Your Google Sheet Title").sheet1
 
+# Streamlit UI
+st.title("Chat with GPT-3.5")
 
-with st.echo(code_location='below'):
-    total_points = st.slider("Number of points in spiral", 1, 5000, 2000)
-    num_turns = st.slider("Number of turns in spiral", 1, 100, 9)
+# Input text box for user queries
+user_input = st.text_area("Ask a question:")
 
-    Point = namedtuple('Point', 'x y')
-    data = []
+if st.button("Get Answer"):
+    # Make a request to GPT-3 for generating a response
+    response = openai.Completion.create(
+        engine="davinci",
+        prompt=user_input,
+        max_tokens=50  # You can adjust this based on your needs
+    )
 
-    points_per_turn = total_points / num_turns
+    answer = response.choices[0].text.strip()
 
-    for curr_point_num in range(total_points):
-        curr_turn, i = divmod(curr_point_num, points_per_turn)
-        angle = (curr_turn + 1) * 2 * math.pi * i / points_per_turn
-        radius = curr_point_num / total_points
-        x = radius * math.cos(angle)
-        y = radius * math.sin(angle)
-        data.append(Point(x, y))
+    # Display the response
+    st.write("GPT-3's response:", answer)
 
-    st.altair_chart(alt.Chart(pd.DataFrame(data), height=500, width=500)
-        .mark_circle(color='#0068c9', opacity=0.5)
-        .encode(x='x:Q', y='y:Q'))
+# Display the Google Sheet data
+st.write("Google Sheet Data")
+data = sheet.get_all_values()
+st.table(data)
